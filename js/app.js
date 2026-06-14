@@ -67,8 +67,7 @@ function selectColor(modelIndex, colorIndex) {
 }
 
 async function init() {
-  await initCamera(video);
-
+  // UI y renderer arrancan inmediatamente sin esperar la cámara
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
   window.addEventListener('resize', () => {
@@ -85,9 +84,12 @@ async function init() {
 
   initFaceTracker().then(() => console.log('Face tracker listo'));
 
-  setTimeout(() => hint.classList.add('hidden'), 3000);
-
+  // Loop arranca ya (muestra el auto aunque no haya cámara todavía)
   loop();
+
+  // Cámara se pide después — si el usuario acepta, empieza a verse
+  await initCamera(video);
+  setTimeout(() => hint.classList.add('hidden'), 3000);
 }
 
 function loop() {
