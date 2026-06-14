@@ -1,3 +1,6 @@
+import { initCamera } from './camera.js';
+import { initCarRenderer, renderCar, setCarRotation, loadCarModel, setCarColor } from './car-renderer.js';
+import { initFaceTracker, detectFace, calculateYaw } from './face-tracker.js';
 import { MODELS } from './models-config.js';
 
 const video = document.getElementById('video');
@@ -11,15 +14,12 @@ const startBtn = document.getElementById('start-btn');
 const panel = document.getElementById('panel');
 const errorMsg = document.getElementById('error-msg');
 
-let activeModelIndex = 0;
-let activeColorIndex = 0;
 let started = false;
-let carRenderer = null;
-let faceTracker = null;
+let rendererReady = false;
 
 function showError(msg) {
   errorMsg.textContent = msg;
-  console.error('showError:', msg);
+  console.error(msg);
 }
 
 function buildUI() {
@@ -46,21 +46,16 @@ function renderColorDots(modelIndex) {
 }
 
 function selectModel(index) {
-  activeModelIndex = index;
-  activeColorIndex = 0;
   document.querySelectorAll('.chip').forEach((c, i) => c.classList.toggle('active', i === index));
-  if (carRenderer) {
-    carRenderer.loadCarModel(MODELS[index].glb)
-      .then(() => carRenderer.setCarColor(MODELS[index].colors[0].hex))
-      .catch(err => showError('Error cargando modelo: ' + err.message));
-  }
+  loadCarModel(MODELS[index].glb)
+    .then(() => setCarColor(MODELS[index].colors[0].hex))
+    .catch(err => console.warn('Error cargando modelo:', err));
   renderColorDots(index);
 }
 
 function selectColor(modelIndex, colorIndex) {
-  activeColorIndex = colorIndex;
   document.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === colorIndex));
-  if (carRenderer) carRenderer.setCarColor(MODELS[modelIndex].colors[colorIndex].hex);
+  setCarColor(MODELS[modelIndex].colors[colorIndex].hex);
 }
 
 function loop() {
@@ -71,21 +66,18 @@ function loop() {
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     ctx.restore();
   } else {
-    ctx.fillStyle = '#111';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
   }
 
-  if (faceTracker) {
-    const result = faceTracker.detectFace(video);
-    if (result && carRenderer) {
-      const yaw = faceTracker.calculateYaw(result);
-      carRenderer.setCarRotation(yaw);
+  if (rendererReady) {
+    const result = detectFace(video);
+    if (result) {
+      const yaw = calculateYaw(result);
+      setCarRotation(yaw);
     }
-  }
-
-  if (carRenderer) {
-    const carCanvas = carRenderer.renderCar();
-    ctx.drawImage(carCanvas, 0, 0);
+    const carCanvas = renderCar();
+    // Dibujar el canvas de Three.js escalado al tamaño del canvas principal
+    ctx.drawImage(carCanvas, 0, 0, canvas.width, canvas.height);
   }
 
   requestAnimationFrame(loop);
@@ -94,49 +86,16 @@ function loop() {
 async function start() {
   if (started) return;
   started = true;
-  startBtn.textContent = 'Iniciando...';
+  startBtn.textContent = 'Esperando permiso...';
   startBtn.disabled = true;
   errorMsg.textContent = '';
 
   try {
-    // Tamaño del canvas
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    window.addEventListener('resize', () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    });
-
-    // Pedir cámara primero — esto dispara el permiso del browser
-    startBtn.textContent = 'Esperando permiso...';
-    const { initCamera } = await import('./camera.js');
     await initCamera(video);
 
-    // Cámara OK — ocultar overlay
+    // Cámara OK — ocultar overlay y mostrar UI
     startOverlay.classList.add('hidden');
-
-    // Cargar Three.js renderer en paralelo con face tracker
-    startBtn.textContent = 'Cargando...';
-    const [rendererModule] = await Promise.all([
-      import('./car-renderer.js'),
-      import('./face-tracker.js').then(ft => {
-        faceTracker = ft;
-        return ft.initFaceTracker().catch(err => {
-          console.warn('Face tracker no disponible:', err);
-        });
-      })
-    ]);
-
-    carRenderer = rendererModule;
-    carRenderer.initCarRenderer();
-    buildUI();
     panel.classList.remove('hidden');
-
-    carRenderer.loadCarModel(MODELS[0].glb)
-      .then(() => carRenderer.setCarColor(MODELS[0].colors[0].hex))
-      .catch(err => console.warn('Modelo inicial no cargó:', err));
-
-    loop();
     setTimeout(() => hint.classList.add('hidden'), 3000);
 
   } catch (err) {
@@ -144,16 +103,38 @@ async function start() {
     startBtn.textContent = '📷 Activar Cámara';
     startBtn.disabled = false;
     const msg = err?.name === 'NotAllowedError'
-      ? 'Permiso de cámara denegado. Habilitalo en configuración del navegador.'
-      : 'Error: ' + (err?.message || String(err));
+      ? 'Permiso denegado. Habilitá la cámara en la config del navegador.'
+      : 'Error de cámara: ' + (err?.message || String(err));
     showError(msg);
     console.error(err);
   }
 }
 
-// Panel oculto hasta que empiece
+// Inicializar canvas, renderer y loop al cargar la página (sin cámara)
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+window.addEventListener('resize', () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
+
 panel.classList.add('hidden');
 
-// Botón listo — el script base cargó correctamente
+// Three.js y face tracker arrancan de fondo sin esperar la cámara
+initCarRenderer();
+buildUI();
+loadCarModel(MODELS[0].glb)
+  .then(() => setCarColor(MODELS[0].colors[0].hex))
+  .catch(err => console.warn('Modelo inicial no cargó:', err));
+
+initFaceTracker()
+  .then(() => { rendererReady = true; })
+  .catch(err => {
+    console.warn('Face tracker no disponible:', err);
+    rendererReady = true; // igual mostramos el auto sin tracking
+  });
+
+loop();
+
 startBtn.addEventListener('click', start);
 console.log('✓ app.js listo');
