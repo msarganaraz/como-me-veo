@@ -16,11 +16,11 @@ const CONFIG = {
   // Auto: largo ~3.4 (Z), ancho ~1.5 (X de -0.75 a 0.75), centrado.
   // Ajustada al asiento del conductor del Ferrari (ver iteración con debug).
   face: {
-    x: -0.12,   // lado del conductor
-    y: 0.19,    // altura de la cabeza sentada
-    z: -0.28,   // cabina (hacia el parabrisas)
-    width: 0.38,
-    height: 0.46,
+    x: -0.10,   // asiento delantero
+    y: 0.13,    // altura de la cabeza sentada
+    z: -0.25,   // cabina (detrás del parabrisas)
+    width: 0.42,
+    height: 0.50,
     rotY: 0
   },
   glassOpacity: 0.12         // transparencia de los vidrios (0 = invisible)
@@ -88,15 +88,16 @@ export function initCarRenderer(videoEl) {
 }
 
 // Máscara radial: centro opaco, bordes transparentes (oculta el fondo de la cara)
+// Difuminado muy suave para que no se note el borde del recorte.
 function makeRadialMask() {
   const c = document.createElement('canvas');
   c.width = c.height = 256;
   const g = c.getContext('2d');
-  // Elipse vertical (forma de cara/cabeza)
-  const grad = g.createRadialGradient(128, 120, 30, 128, 128, 130);
+  const grad = g.createRadialGradient(128, 122, 12, 128, 128, 145);
   grad.addColorStop(0, '#ffffff');
-  grad.addColorStop(0.6, '#ffffff');
-  grad.addColorStop(0.85, '#888888');
+  grad.addColorStop(0.4, '#ffffff');
+  grad.addColorStop(0.62, '#dddddd');
+  grad.addColorStop(0.8, '#777777');
   grad.addColorStop(1, '#000000');
   g.fillStyle = grad;
   g.fillRect(0, 0, 256, 256);
@@ -156,10 +157,14 @@ export async function loadCarModel(glbPath) {
       const maxDim = Math.max(size.x, size.y, size.z);
       const scale = CONFIG.carTargetSize / maxDim;
 
+      // Centrar el modelo en su propio origen
       model.position.sub(center);
-      model.scale.setScalar(scale);
-      // Reposicionar: apoyar sobre el "piso" del grupo
-      model.position.y += (size.y * scale) / 2 - (center.y * scale);
+
+      // Wrapper: escala y rota el auto 180° para verlo de FRENTE
+      const wrapper = new THREE.Group();
+      wrapper.add(model);
+      wrapper.scale.setScalar(scale);
+      wrapper.rotation.y = Math.PI;
 
       // Procesar materiales: vidrios transparentes, carrocería coloreable
       model.traverse((child) => {
@@ -183,7 +188,7 @@ export async function loadCarModel(glbPath) {
         });
       });
 
-      carModel = model;
+      carModel = wrapper;
       carGroup.add(carModel);
       positionFace();
 
