@@ -2,89 +2,97 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 let renderer, scene, camera, carGroup;
+let videoTexture, bgMesh;
 let targetRotationY = 0;
 let currentRotationY = 0;
 
-export function initCarRenderer() {
-  // Three.js crea su propio canvas y lo insertamos en #car-layer
-  renderer = new THREE.WebGLRenderer({
-    alpha: true,        // fondo transparente
-    antialias: true,
-    premultipliedAlpha: false
-  });
+export function initCarRenderer(videoEl) {
+  // Un solo canvas WebGL para todo — cámara como textura + auto encima
+  renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setClearColor(0x000000, 0); // transparente
 
-  // Insertar canvas en el DOM encima de la cámara
   const layer = document.getElementById('car-layer');
   layer.appendChild(renderer.domElement);
 
   scene = new THREE.Scene();
-
   camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
   camera.position.set(0, 1.5, 5);
   camera.lookAt(0, 0.5, 0);
 
-  // Iluminación
-  const ambient = new THREE.AmbientLight(0xffffff, 0.8);
-  scene.add(ambient);
-  const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-  dirLight.position.set(5, 10, 5);
-  scene.add(dirLight);
+  // Textura de video para el fondo (cámara)
+  videoTexture = new THREE.VideoTexture(videoEl);
+  videoTexture.colorSpace = THREE.SRGBColorSpace;
 
-  // Placeholder: cubo rojo hasta que llegue el GLB
+  // Plano de fondo que cubre toda la pantalla, espejado horizontalmente
+  const bgGeo = new THREE.PlaneGeometry(2, 2);
+  const bgMat = new THREE.MeshBasicMaterial({ map: videoTexture, depthWrite: false });
+  bgMesh = new THREE.Mesh(bgGeo, bgMat);
+  // Espejo horizontal
+  bgMesh.scale.x = -1;
+
+  // Cámara ortográfica para el fondo (siempre llena la pantalla)
+  const bgCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const bgScene = new THREE.Scene();
+  bgScene.add(bgMesh);
+
+  // Guardar para el loop
+  renderer._bgCamera = bgCamera;
+  renderer._bgScene = bgScene;
+
+  // Luces
+  scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+  const dir = new THREE.DirectionalLight(0xffffff, 1.2);
+  dir.position.set(5, 10, 5);
+  scene.add(dir);
+
+  // Placeholder hasta que cargue el GLB
   carGroup = new THREE.Group();
-  const boxGeo = new THREE.BoxGeometry(2, 1, 4);
-  const boxMat = new THREE.MeshStandardMaterial({ color: 0xff3333 });
-  const box = new THREE.Mesh(boxGeo, boxMat);
+  const box = new THREE.Mesh(
+    new THREE.BoxGeometry(2, 1, 4),
+    new THREE.MeshStandardMaterial({ color: 0xff3333 })
+  );
   carGroup.add(box);
   scene.add(carGroup);
 
   window.addEventListener('resize', () => {
-    offscreen.width = window.innerWidth;
-    offscreen.height = window.innerHeight;
     renderer.setSize(window.innerWidth, window.innerHeight);
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
   });
-
-  return renderer;
 }
 
 export function setCarRotation(yaw) {
-  // yaw en rango -1..1 → rotación -PI..PI
   targetRotationY = yaw * Math.PI;
 }
 
 export function renderCar() {
-  // Suavizado con lerp (factor 0.08 = movimiento fluido)
   currentRotationY += (targetRotationY - currentRotationY) * 0.08;
   if (carGroup) carGroup.rotation.y = currentRotationY;
+
+  // 1) Dibujar fondo de cámara (sin depth)
+  renderer.autoClear = false;
+  renderer.clear();
+  renderer.render(renderer._bgScene, renderer._bgCamera);
+
+  // 2) Dibujar auto encima
+  renderer.clearDepth();
   renderer.render(scene, camera);
-  return renderer.domElement; // canvas con el auto renderizado
 }
 
 export async function loadCarModel(glbPath) {
   const loader = new GLTFLoader();
   return new Promise((resolve, reject) => {
-    loader.load(
-      glbPath,
-      (gltf) => {
-        // Remover contenido anterior
-        while (carGroup.children.length) carGroup.remove(carGroup.children[0]);
-        carGroup.add(gltf.scene);
+    loader.load(glbPath, (gltf) => {
+      while (carGroup.children.length) carGroup.remove(carGroup.children[0]);
+      carGroup.add(gltf.scene);
 
-        // Centrar el modelo
-        const box = new THREE.Box3().setFromObject(gltf.scene);
-        const center = box.getCenter(new THREE.Vector3());
-        gltf.scene.position.sub(center);
+      const box = new THREE.Box3().setFromObject(gltf.scene);
+      const center = box.getCenter(new THREE.Vector3());
+      gltf.scene.position.sub(center);
 
-        resolve(gltf.scene);
-      },
-      undefined,
-      reject
-    );
+      resolve(gltf.scene);
+    }, undefined, reject);
   });
 }
 
@@ -92,7 +100,6 @@ export function setCarColor(hexColor) {
   if (!carGroup) return;
   carGroup.traverse((child) => {
     if (child.isMesh && child.material) {
-      // Sólo colorea materiales de carrocería (no vidrios)
       const mat = child.material;
       if (mat.transparent && mat.opacity < 0.9) return;
       mat.color.set(hexColor);

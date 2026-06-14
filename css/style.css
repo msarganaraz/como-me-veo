@@ -12,16 +12,7 @@ body {
   display: none;
 }
 
-/* Capa 1: feed de cámara */
-#camera-canvas {
-  position: fixed;
-  top: 0; left: 0;
-  width: 100vw;
-  height: 100vh;
-  display: block;
-}
-
-/* Capa 2: canvas WebGL de Three.js (pegado encima, sin bloquear eventos) */
+/* Canvas WebGL único: cámara como textura + auto renderizado */
 #car-layer {
   position: fixed;
   top: 0; left: 0;
@@ -31,10 +22,9 @@ body {
 }
 
 #car-layer canvas {
-  position: absolute;
-  top: 0; left: 0;
-  width: 100% !important;
-  height: 100% !important;
+  display: block;
+  width: 100vw !important;
+  height: 100vh !important;
 }
 
 #hint {

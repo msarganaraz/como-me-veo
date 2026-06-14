@@ -16,8 +16,7 @@
 </head>
 <body>
   <video id="video" autoplay playsinline muted></video>
-  <!-- Dos capas apiladas: cámara abajo, auto arriba (sin compositing manual) -->
-  <canvas id="camera-canvas"></canvas>
+  <!-- Un solo canvas WebGL: cámara como textura de fondo + auto encima -->
   <div id="car-layer"></div>
 
   <div id="start-overlay">

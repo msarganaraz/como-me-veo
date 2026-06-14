@@ -4,8 +4,6 @@ import { initFaceTracker, detectFace, calculateYaw } from './face-tracker.js';
 import { MODELS } from './models-config.js';
 
 const video = document.getElementById('video');
-const cameraCanvas = document.getElementById('camera-canvas');
-const ctx = cameraCanvas.getContext('2d');
 const hint = document.getElementById('hint');
 const modelChips = document.getElementById('model-chips');
 const colorDots = document.getElementById('color-dots');
@@ -15,6 +13,7 @@ const panel = document.getElementById('panel');
 const errorMsg = document.getElementById('error-msg');
 
 let started = false;
+let cameraReady = false;
 let rendererReady = false;
 
 function showError(msg) {
@@ -59,25 +58,13 @@ function selectColor(modelIndex, colorIndex) {
 }
 
 function loop() {
-  // Dibujar feed de cámara (espejado) en el canvas inferior
-  if (video.readyState >= 2) {
-    ctx.save();
-    ctx.translate(cameraCanvas.width, 0);
-    ctx.scale(-1, 1);
-    ctx.drawImage(video, 0, 0, cameraCanvas.width, cameraCanvas.height);
-    ctx.restore();
-  }
-
-  // Three.js renderiza directo a su canvas DOM (capa superior)
   if (rendererReady) {
-    const result = detectFace(video);
-    if (result) {
-      const yaw = calculateYaw(result);
-      setCarRotation(yaw);
+    if (cameraReady) {
+      const result = detectFace(video);
+      if (result) setCarRotation(calculateYaw(result));
     }
     renderCar();
   }
-
   requestAnimationFrame(loop);
 }
 
@@ -90,6 +77,7 @@ async function start() {
 
   try {
     await initCamera(video);
+    cameraReady = true;
 
     startOverlay.classList.add('hidden');
     panel.classList.remove('hidden');
@@ -107,29 +95,19 @@ async function start() {
   }
 }
 
-// Setup al cargar la página
-cameraCanvas.width = window.innerWidth;
-cameraCanvas.height = window.innerHeight;
-window.addEventListener('resize', () => {
-  cameraCanvas.width = window.innerWidth;
-  cameraCanvas.height = window.innerHeight;
-});
-
+// Init al cargar: renderer + UI + loop (sin cámara todavía)
 panel.classList.add('hidden');
 
-// Three.js y MediaPipe cargan en background mientras el overlay está visible
-initCarRenderer();
+initCarRenderer(video);
+rendererReady = true;
+
 buildUI();
 loadCarModel(MODELS[0].glb)
   .then(() => setCarColor(MODELS[0].colors[0].hex))
   .catch(err => console.warn('Modelo inicial no cargó:', err));
 
 initFaceTracker()
-  .then(() => { rendererReady = true; })
-  .catch(err => {
-    console.warn('Face tracker no disponible:', err);
-    rendererReady = true;
-  });
+  .catch(err => console.warn('Face tracker no disponible:', err));
 
 loop();
 
