@@ -126,7 +126,10 @@ async function start() {
     started = false;
     startBtn.textContent = '📷 Activar Cámara';
     startBtn.disabled = false;
-    showError('No se pudo acceder a la cámara: ' + err.message);
+    const msg = err?.name === 'NotAllowedError'
+      ? 'Permiso de cámara denegado. Habilitalo en la configuración del navegador.'
+      : 'Error: ' + (err?.message || String(err));
+    showError(msg);
     console.error(err);
   }
 }
@@ -134,5 +137,14 @@ async function start() {
 // Panel y hint ocultos hasta que el usuario inicie
 panel.classList.add('hidden');
 
+// Capturar errores globales y mostrarlos en el overlay
+window.addEventListener('error', (e) => {
+  showError('Error: ' + (e.message || 'desconocido'));
+});
+window.addEventListener('unhandledrejection', (e) => {
+  showError('Error: ' + (e.reason?.message || String(e.reason)));
+});
+
 // El botón de inicio dispara todo — requerido por mobile para getUserMedia
 startBtn.addEventListener('click', start);
+console.log('app.js cargado, botón listo');
