@@ -48,14 +48,17 @@ export function initCarRenderer(videoEl) {
   camera.position.set(3.2, 1.4, 5);
   camera.lookAt(0, 0.5, 0);
 
-  // Iluminación tipo showroom
-  scene.add(new THREE.AmbientLight(0xffffff, 1.1));
-  const key = new THREE.DirectionalLight(0xffffff, 1.6);
+  // Iluminación tipo showroom (más brillante)
+  scene.add(new THREE.AmbientLight(0xffffff, 2.0));
+  const key = new THREE.DirectionalLight(0xffffff, 2.5);
   key.position.set(5, 10, 7);
   scene.add(key);
-  const fill = new THREE.DirectionalLight(0xaaccff, 0.7);
+  const fill = new THREE.DirectionalLight(0xcce0ff, 1.2);
   fill.position.set(-6, 4, -4);
   scene.add(fill);
+  const rim = new THREE.DirectionalLight(0xffffff, 1.0);
+  rim.position.set(0, 6, -8);
+  scene.add(rim);
 
   // Grupo que rota con la cabeza (contiene auto + cara)
   carGroup = new THREE.Group();
@@ -111,9 +114,9 @@ function makeGradientBackground() {
   c.width = 16; c.height = 256;
   const g = c.getContext('2d');
   const grad = g.createLinearGradient(0, 0, 0, 256);
-  grad.addColorStop(0, '#2a2d4a');
-  grad.addColorStop(0.55, '#1a1b2e');
-  grad.addColorStop(1, '#0d0d1a');
+  grad.addColorStop(0, '#dfe4ea');
+  grad.addColorStop(0.55, '#c4ccd4');
+  grad.addColorStop(1, '#9aa3ad');
   g.fillStyle = grad;
   g.fillRect(0, 0, 16, 256);
   const tex = new THREE.CanvasTexture(c);
@@ -138,7 +141,7 @@ export function renderCar() {
   renderer.render(scene, camera);
 }
 
-export async function loadCarModel(glbPath) {
+export async function loadCarModel(glbPath, spec = {}) {
   return new Promise((resolve, reject) => {
     gltfLoader.load(glbPath, (gltf) => {
       // Quitar modelo anterior (pero conservar la cara)
@@ -160,11 +163,16 @@ export async function loadCarModel(glbPath) {
       // Centrar el modelo en su propio origen
       model.position.sub(center);
 
-      // Wrapper: escala y rota el auto 180° para verlo de FRENTE
+      // Wrapper: escala y rota el auto para verlo de FRENTE
+      // (cada modelo tiene su orientación original → baseRotation por modelo)
       const wrapper = new THREE.Group();
       wrapper.add(model);
       wrapper.scale.setScalar(scale);
-      wrapper.rotation.y = Math.PI;
+      wrapper.rotation.y = spec.baseRotation ?? Math.PI;
+
+      // Nombres de material específicos del modelo (opcionales)
+      const bodySpec = (spec.body || '').toLowerCase();
+      const glassSpec = (spec.glass || []).map(g => g.toLowerCase());
 
       // Procesar materiales: vidrios transparentes, carrocería coloreable
       model.traverse((child) => {
@@ -173,16 +181,24 @@ export async function loadCarModel(glbPath) {
         mats.forEach((mat) => {
           const name = (mat.name || '').toLowerCase();
           const meshName = (child.name || '').toLowerCase();
-          // Vidrios → transparentes para ver la cara
-          if (name.includes('glass') || meshName.includes('glass') ||
-              name.includes('window') || meshName.includes('window')) {
+
+          // ── Vidrios → transparentes ──
+          const isGlass = glassSpec.length
+            ? glassSpec.some(g => name === g || name.includes(g))
+            : (name.includes('glass') || meshName.includes('glass') ||
+               name.includes('window') || meshName.includes('window'));
+          if (isGlass) {
             mat.transparent = true;
             mat.opacity = CONFIG.glassOpacity;
             mat.depthWrite = false;
           }
-          // Carrocería → coloreable
-          if (meshName === 'body' || name.includes('body') || name.includes('paint') ||
-              name.includes('carpaint') || name.includes('car_paint')) {
+
+          // ── Carrocería → coloreable ──
+          const isBody = bodySpec
+            ? (name === bodySpec || name.includes(bodySpec))
+            : (meshName === 'body' || name.includes('body') || name.includes('paint') ||
+               name.includes('carpaint') || name.includes('car_paint'));
+          if (isBody && !isGlass) {
             bodyMaterials.push(mat);
           }
         });
@@ -190,6 +206,9 @@ export async function loadCarModel(glbPath) {
 
       carModel = wrapper;
       carGroup.add(carModel);
+
+      // Posición de la cara específica del modelo (si la define)
+      if (spec.face) Object.assign(CONFIG.face, spec.face);
       positionFace();
 
       resolve(model);

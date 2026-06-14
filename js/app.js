@@ -49,8 +49,9 @@ function renderColorDots(modelIndex) {
 
 function selectModel(index) {
   document.querySelectorAll('.chip').forEach((c, i) => c.classList.toggle('active', i === index));
-  loadCarModel(MODELS[index].glb)
-    .then(() => setCarColor(MODELS[index].colors[0].hex))
+  const m = MODELS[index];
+  loadCarModel(m.glb, { body: m.body, glass: m.glass, baseRotation: m.baseRotation, face: m.face })
+    .then(() => setCarColor(m.colors[0].hex))
     .catch(err => console.warn('Error cargando modelo:', err));
   renderColorDots(index);
 }
@@ -118,7 +119,7 @@ async function boot() {
   rendererReady = true;
 
   buildUI();
-  loadCarModel(MODELS[0].glb)
+  loadCarModel(MODELS[0].glb, { body: MODELS[0].body, glass: MODELS[0].glass, baseRotation: MODELS[0].baseRotation, face: MODELS[0].face })
     .then(() => setCarColor(MODELS[0].colors[0].hex))
     .catch(err => console.warn('Modelo inicial no cargó:', err));
 
