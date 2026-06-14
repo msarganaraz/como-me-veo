@@ -12,14 +12,16 @@ gltfLoader.setDRACOLoader(dracoLoader);
 const CONFIG = {
   carTargetSize: 3.4,        // largo del auto en unidades 3D (normalizado)
   rotationRange: Math.PI / 5, // ±36° de giro máximo con la cabeza
-  // Posición de la cara dentro del auto (relativa al tamaño normalizado)
+  // Posición ABSOLUTA de la cara en el espacio del auto normalizado.
+  // Auto: largo ~3.4 (Z), ancho ~1.5 (X de -0.75 a 0.75), centrado.
+  // Ajustada al asiento del conductor del Ferrari (ver iteración con debug).
   face: {
-    x: -0.45,   // lado del conductor (-X = izquierda)
-    y: 0.55,    // altura de la cabeza
-    z: 0.15,    // hacia adelante (asiento delantero)
-    width: 0.95,
-    height: 1.15,
-    rotY: 0.35  // leve giro para mirar hacia afuera de la ventanilla
+    x: -0.12,   // lado del conductor
+    y: 0.19,    // altura de la cabeza sentada
+    z: -0.28,   // cabina (hacia el parabrisas)
+    width: 0.38,
+    height: 0.46,
+    rotY: 0
   },
   glassOpacity: 0.12         // transparencia de los vidrios (0 = invisible)
 };
@@ -67,7 +69,12 @@ export function initCarRenderer(videoEl) {
   videoTexture.repeat.x = -1;
   videoTexture.offset.x = 1;
 
-  const faceMat = new THREE.MeshBasicMaterial({ map: videoTexture, toneMapped: false });
+  const faceMat = new THREE.MeshBasicMaterial({
+    map: videoTexture,
+    toneMapped: false,
+    transparent: true,
+    alphaMap: makeRadialMask()   // desvanece los bordes (oculta el fondo)
+  });
   facePlane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), faceMat);
   carGroup.add(facePlane);
   positionFace();
@@ -78,6 +85,23 @@ export function initCarRenderer(videoEl) {
     camera.updateProjectionMatrix();
     scene.background = makeGradientBackground();
   });
+}
+
+// Máscara radial: centro opaco, bordes transparentes (oculta el fondo de la cara)
+function makeRadialMask() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d');
+  // Elipse vertical (forma de cara/cabeza)
+  const grad = g.createRadialGradient(128, 120, 30, 128, 128, 130);
+  grad.addColorStop(0, '#ffffff');
+  grad.addColorStop(0.6, '#ffffff');
+  grad.addColorStop(0.85, '#888888');
+  grad.addColorStop(1, '#000000');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 256, 256);
+  const tex = new THREE.CanvasTexture(c);
+  return tex;
 }
 
 // Fondo degradado tipo estudio
@@ -97,9 +121,8 @@ function makeGradientBackground() {
 }
 
 function positionFace() {
-  const s = CONFIG.carTargetSize;
   const f = CONFIG.face;
-  facePlane.position.set(f.x * s, f.y * s * 0.4, f.z * s);
+  facePlane.position.set(f.x, f.y, f.z);
   facePlane.scale.set(f.width, f.height, 1);
   facePlane.rotation.y = f.rotY;
 }
