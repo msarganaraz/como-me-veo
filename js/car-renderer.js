@@ -1,5 +1,12 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+
+// Loader compartido con soporte DRACO (el Ferrari está comprimido)
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+const gltfLoader = new GLTFLoader();
+gltfLoader.setDRACOLoader(dracoLoader);
 
 // ── Parámetros ajustables del efecto "cara en ventanilla" ──
 const CONFIG = {
@@ -108,9 +115,8 @@ export function renderCar() {
 }
 
 export async function loadCarModel(glbPath) {
-  const loader = new GLTFLoader();
   return new Promise((resolve, reject) => {
-    loader.load(glbPath, (gltf) => {
+    gltfLoader.load(glbPath, (gltf) => {
       // Quitar modelo anterior (pero conservar la cara)
       if (carModel) {
         carGroup.remove(carModel);

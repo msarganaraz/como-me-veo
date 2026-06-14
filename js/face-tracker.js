@@ -1,5 +1,5 @@
-// Versión 0.10.3 — la última con vision_bundle.js confirmada en CDN
-const MEDIAPIPE_VERSION = '0.10.3';
+// El bundle se llama vision_bundle.mjs (no .js)
+const MEDIAPIPE_VERSION = '0.10.14';
 const MEDIAPIPE_BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}`;
 
 let FaceLandmarker = null;
@@ -9,7 +9,7 @@ let lastTimestamp = -1;
 
 export async function initFaceTracker() {
   // Import dinámico para que un 404 no rompa el módulo entero
-  const vision = await import(`${MEDIAPIPE_BASE}/vision_bundle.js`);
+  const vision = await import(`${MEDIAPIPE_BASE}/vision_bundle.mjs`);
   FaceLandmarker = vision.FaceLandmarker;
   FilesetResolver = vision.FilesetResolver;
 
