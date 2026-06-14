@@ -93,11 +93,17 @@ async function init() {
 }
 
 function loop() {
-  ctx.save();
-  ctx.translate(canvas.width, 0);
-  ctx.scale(-1, 1);
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  ctx.restore();
+  // Solo dibuja la cámara si ya tiene datos (evita crash antes del permiso)
+  if (video.readyState >= 2) {
+    ctx.save();
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = '#111';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
 
   const result = detectFace(video);
   if (result) {
