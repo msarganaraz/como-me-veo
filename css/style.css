@@ -90,3 +90,82 @@ body {
 .dot.active {
   border-color: #fff;
 }
+
+/* Pantalla de inicio */
+#start-overlay {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3e 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  transition: opacity 0.5s;
+}
+
+#start-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#start-card {
+  text-align: center;
+  color: #fff;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+#start-logo {
+  font-size: 64px;
+}
+
+#start-card h1 {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+#start-card p {
+  font-size: 15px;
+  color: rgba(255,255,255,0.6);
+}
+
+#start-btn {
+  margin-top: 8px;
+  padding: 16px 36px;
+  background: #fff;
+  color: #000;
+  border: none;
+  border-radius: 50px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.1s, background 0.2s;
+}
+
+#start-btn:active {
+  transform: scale(0.96);
+}
+
+/* Mensaje de error visible en pantalla */
+#error-msg {
+  position: fixed;
+  bottom: 120px;
+  left: 0; right: 0;
+  text-align: center;
+  color: #ff6b6b;
+  font-size: 13px;
+  padding: 8px;
+  pointer-events: none;
+}
+
+/* Ocultar panel hasta que empiece */
+#panel.hidden {
+  display: none;
+}
+#hint.before-start {
+  display: none;
+}

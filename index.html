@@ -18,12 +18,23 @@
   <video id="video" autoplay playsinline muted></video>
   <canvas id="main"></canvas>
 
+  <div id="start-overlay">
+    <div id="start-card">
+      <div id="start-logo">🚗</div>
+      <h1>¿Cómo me veo?</h1>
+      <p>Probá autos en realidad aumentada</p>
+      <button id="start-btn">📷 Activar Cámara</button>
+    </div>
+  </div>
+
   <div id="hint">← mové la cabeza →</div>
 
   <div id="panel">
     <div id="model-chips"></div>
     <div id="color-dots"></div>
   </div>
+
+  <div id="error-msg"></div>
 
   <script type="module" src="js/app.js"></script>
 </body>
