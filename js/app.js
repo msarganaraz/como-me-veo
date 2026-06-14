@@ -1,4 +1,5 @@
 import { initCamera } from './camera.js';
+import { initCarRenderer, renderCar, setCarRotation } from './car-renderer.js';
 
 const video = document.getElementById('video');
 const canvas = document.getElementById('main');
@@ -15,21 +16,27 @@ async function init() {
     canvas.height = window.innerHeight;
   });
 
+  initCarRenderer();
+
   loop();
 }
 
 function loop() {
-  // Draw camera feed mirrored (espejo — más natural para selfie)
+  // 1. Fondo: cámara espejada
   ctx.save();
   ctx.translate(canvas.width, 0);
   ctx.scale(-1, 1);
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   ctx.restore();
 
+  // 2. Auto encima (transparente donde hay vidrios)
+  const carCanvas = renderCar();
+  ctx.drawImage(carCanvas, 0, 0);
+
   requestAnimationFrame(loop);
 }
 
 init().catch(err => {
-  console.error('Error iniciando cámara:', err);
-  alert('No se pudo acceder a la cámara. Asegurate de dar permiso.');
+  console.error('Error iniciando:', err);
+  alert('No se pudo acceder a la cámara.');
 });
