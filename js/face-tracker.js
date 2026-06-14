@@ -1,14 +1,21 @@
-import { FaceLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.js';
+// Versión 0.10.3 — la última con vision_bundle.js confirmada en CDN
+const MEDIAPIPE_VERSION = '0.10.3';
+const MEDIAPIPE_BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}`;
 
+let FaceLandmarker = null;
+let FilesetResolver = null;
 let faceLandmarker = null;
 let lastTimestamp = -1;
 
 export async function initFaceTracker() {
-  const vision = await FilesetResolver.forVisionTasks(
-    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
-  );
+  // Import dinámico para que un 404 no rompa el módulo entero
+  const vision = await import(`${MEDIAPIPE_BASE}/vision_bundle.js`);
+  FaceLandmarker = vision.FaceLandmarker;
+  FilesetResolver = vision.FilesetResolver;
 
-  faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+  const filesetResolver = await FilesetResolver.forVisionTasks(`${MEDIAPIPE_BASE}/wasm`);
+
+  faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
     baseOptions: {
       modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
       delegate: 'GPU'
@@ -32,13 +39,7 @@ export function detectFace(videoEl) {
 export function calculateYaw(result) {
   if (!result?.facialTransformationMatrixes?.length) return 0;
 
-  // Matrix 4x4 column-major del primer rostro detectado
   const m = result.facialTransformationMatrixes[0].data;
-
-  // Yaw (rotación Y) del modelo de transformación facial
-  // m[0] = cos(yaw), m[8] = sin(yaw) en coordenadas de cámara
   const rawYaw = Math.atan2(m[8], m[0]);
-
-  // Normalizar a rango -1..1 (±60° = rango máximo)
   return Math.max(-1, Math.min(1, rawYaw / (Math.PI / 3)));
 }
