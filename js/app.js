@@ -1,7 +1,6 @@
-import { initCamera } from './camera.js';
-import { initCarRenderer, renderCar, setCarRotation, loadCarModel, setCarColor } from './car-renderer.js';
-import { initFaceTracker, detectFace, calculateYaw } from './face-tracker.js';
-import { MODELS } from './models-config.js';
+// Propaga el query de versión (?v=N) de app.js a los imports locales,
+// para saltar el cache del navegador en cada deploy.
+const V = new URL(import.meta.url).search || '';
 
 const video = document.getElementById('video');
 const hint = document.getElementById('hint');
@@ -11,6 +10,10 @@ const startOverlay = document.getElementById('start-overlay');
 const startBtn = document.getElementById('start-btn');
 const panel = document.getElementById('panel');
 const errorMsg = document.getElementById('error-msg');
+
+let initCamera;
+let initCarRenderer, renderCar, setCarRotation, loadCarModel, setCarColor;
+let initFaceTracker, detectFace, calculateYaw, MODELS;
 
 let started = false;
 let cameraReady = false;
@@ -95,21 +98,40 @@ async function start() {
   }
 }
 
-// Init al cargar: renderer + UI + loop (sin cámara todavía)
-panel.classList.add('hidden');
+async function boot() {
+  // Cargar módulos locales con versión propagada (cache-bust)
+  const [cam, car, ft, cfg] = await Promise.all([
+    import('./camera.js' + V),
+    import('./car-renderer.js' + V),
+    import('./face-tracker.js' + V),
+    import('./models-config.js' + V)
+  ]);
 
-initCarRenderer(video);
-rendererReady = true;
+  initCamera = cam.initCamera;
+  ({ initCarRenderer, renderCar, setCarRotation, loadCarModel, setCarColor } = car);
+  ({ initFaceTracker, detectFace, calculateYaw } = ft);
+  MODELS = cfg.MODELS;
 
-buildUI();
-loadCarModel(MODELS[0].glb)
-  .then(() => setCarColor(MODELS[0].colors[0].hex))
-  .catch(err => console.warn('Modelo inicial no cargó:', err));
+  panel.classList.add('hidden');
 
-initFaceTracker()
-  .catch(err => console.warn('Face tracker no disponible:', err));
+  initCarRenderer(video);
+  rendererReady = true;
 
-loop();
+  buildUI();
+  loadCarModel(MODELS[0].glb)
+    .then(() => setCarColor(MODELS[0].colors[0].hex))
+    .catch(err => console.warn('Modelo inicial no cargó:', err));
 
-startBtn.addEventListener('click', start);
-console.log('✓ app.js listo');
+  initFaceTracker()
+    .catch(err => console.warn('Face tracker no disponible:', err));
+
+  loop();
+
+  startBtn.addEventListener('click', start);
+  console.log('✓ app.js listo (v=' + (V || 'sin version') + ')');
+}
+
+boot().catch(err => {
+  showError('Error al iniciar: ' + (err?.message || String(err)));
+  console.error(err);
+});
