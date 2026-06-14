@@ -4,8 +4,8 @@ import { initFaceTracker, detectFace, calculateYaw } from './face-tracker.js';
 import { MODELS } from './models-config.js';
 
 const video = document.getElementById('video');
-const canvas = document.getElementById('main');
-const ctx = canvas.getContext('2d');
+const cameraCanvas = document.getElementById('camera-canvas');
+const ctx = cameraCanvas.getContext('2d');
 const hint = document.getElementById('hint');
 const modelChips = document.getElementById('model-chips');
 const colorDots = document.getElementById('color-dots');
@@ -59,25 +59,23 @@ function selectColor(modelIndex, colorIndex) {
 }
 
 function loop() {
+  // Dibujar feed de cámara (espejado) en el canvas inferior
   if (video.readyState >= 2) {
     ctx.save();
-    ctx.translate(canvas.width, 0);
+    ctx.translate(cameraCanvas.width, 0);
     ctx.scale(-1, 1);
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, 0, 0, cameraCanvas.width, cameraCanvas.height);
     ctx.restore();
-  } else {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
   }
 
+  // Three.js renderiza directo a su canvas DOM (capa superior)
   if (rendererReady) {
     const result = detectFace(video);
     if (result) {
       const yaw = calculateYaw(result);
       setCarRotation(yaw);
     }
-    const carCanvas = renderCar();
-    // Dibujar el canvas de Three.js escalado al tamaño del canvas principal
-    ctx.drawImage(carCanvas, 0, 0, canvas.width, canvas.height);
+    renderCar();
   }
 
   requestAnimationFrame(loop);
@@ -93,7 +91,6 @@ async function start() {
   try {
     await initCamera(video);
 
-    // Cámara OK — ocultar overlay y mostrar UI
     startOverlay.classList.add('hidden');
     panel.classList.remove('hidden');
     setTimeout(() => hint.classList.add('hidden'), 3000);
@@ -110,17 +107,17 @@ async function start() {
   }
 }
 
-// Inicializar canvas, renderer y loop al cargar la página (sin cámara)
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+// Setup al cargar la página
+cameraCanvas.width = window.innerWidth;
+cameraCanvas.height = window.innerHeight;
 window.addEventListener('resize', () => {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+  cameraCanvas.width = window.innerWidth;
+  cameraCanvas.height = window.innerHeight;
 });
 
 panel.classList.add('hidden');
 
-// Three.js y face tracker arrancan de fondo sin esperar la cámara
+// Three.js y MediaPipe cargan en background mientras el overlay está visible
 initCarRenderer();
 buildUI();
 loadCarModel(MODELS[0].glb)
@@ -131,7 +128,7 @@ initFaceTracker()
   .then(() => { rendererReady = true; })
   .catch(err => {
     console.warn('Face tracker no disponible:', err);
-    rendererReady = true; // igual mostramos el auto sin tracking
+    rendererReady = true;
   });
 
 loop();

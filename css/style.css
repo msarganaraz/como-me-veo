@@ -12,12 +12,29 @@ body {
   display: none;
 }
 
-#main {
+/* Capa 1: feed de cámara */
+#camera-canvas {
   position: fixed;
   top: 0; left: 0;
   width: 100vw;
   height: 100vh;
   display: block;
+}
+
+/* Capa 2: canvas WebGL de Three.js (pegado encima, sin bloquear eventos) */
+#car-layer {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+}
+
+#car-layer canvas {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 #hint {

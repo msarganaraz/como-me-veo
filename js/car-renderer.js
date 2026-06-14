@@ -6,19 +6,19 @@ let targetRotationY = 0;
 let currentRotationY = 0;
 
 export function initCarRenderer() {
-  // Offscreen canvas — Three.js renderiza aquí
-  const offscreen = document.createElement('canvas');
-  offscreen.width = window.innerWidth;
-  offscreen.height = window.innerHeight;
-
+  // Three.js crea su propio canvas y lo insertamos en #car-layer
   renderer = new THREE.WebGLRenderer({
-    canvas: offscreen,
     alpha: true,        // fondo transparente
-    antialias: true
+    antialias: true,
+    premultipliedAlpha: false
   });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setClearColor(0x000000, 0); // transparente
+
+  // Insertar canvas en el DOM encima de la cámara
+  const layer = document.getElementById('car-layer');
+  layer.appendChild(renderer.domElement);
 
   scene = new THREE.Scene();
 

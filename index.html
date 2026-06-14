@@ -16,7 +16,9 @@
 </head>
 <body>
   <video id="video" autoplay playsinline muted></video>
-  <canvas id="main"></canvas>
+  <!-- Dos capas apiladas: cámara abajo, auto arriba (sin compositing manual) -->
+  <canvas id="camera-canvas"></canvas>
+  <div id="car-layer"></div>
 
   <div id="start-overlay">
     <div id="start-card">
