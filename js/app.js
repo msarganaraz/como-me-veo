@@ -12,9 +12,9 @@ const panel = document.getElementById('panel');
 const errorMsg = document.getElementById('error-msg');
 
 let initCamera;
-let initCarRenderer, renderCar, setCarRotation, loadCarModel, setCarColor, updateFaceTexture;
+let initCarRenderer, renderCar, setCarRotation, loadCarModel, setCarColor, refreshFaceTexture;
 let initFaceTracker, detectFace, calculateYaw, MODELS;
-let initPersonSegmenter, segmentFrame, getMattedCanvas, isSegmenterReady;
+let initPersonSegmenter, segmentFrame, updateFaceCanvas, getFaceCanvas;
 
 let started = false;
 let cameraReady = false;
@@ -72,8 +72,7 @@ function loop() {
       // Segmentación de persona: recorta la silueta real (no un óvalo)
       if (segmenterReady) {
         segmentFrame(video);
-        const matted = getMattedCanvas(video);
-        if (matted) updateFaceTexture(matted);
+        if (updateFaceCanvas(video)) refreshFaceTexture();
       }
     }
     renderCar();
@@ -119,14 +118,16 @@ async function boot() {
   ]);
 
   initCamera = cam.initCamera;
-  ({ initCarRenderer, renderCar, setCarRotation, loadCarModel, setCarColor, updateFaceTexture } = car);
+  ({ initCarRenderer, renderCar, setCarRotation, loadCarModel, setCarColor, refreshFaceTexture } = car);
   ({ initFaceTracker, detectFace, calculateYaw } = ft);
-  ({ initPersonSegmenter, segmentFrame, getMattedCanvas, isSegmenterReady } = seg);
+  ({ initPersonSegmenter, segmentFrame, updateFaceCanvas, getFaceCanvas } = seg);
   MODELS = cfg.MODELS;
 
   panel.classList.add('hidden');
 
-  initCarRenderer();
+  // El canvas de la cara existe desde que se importa el módulo (tamaño
+  // fijo) — se lo pasamos al renderer una sola vez, nunca se reemplaza.
+  initCarRenderer(getFaceCanvas());
   rendererReady = true;
 
   buildUI();

@@ -32,7 +32,7 @@ let targetRotationY = 0;
 let currentRotationY = 0;
 let bodyMaterials = [];
 
-export function initCarRenderer() {
+export function initCarRenderer(faceCanvas) {
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -64,13 +64,18 @@ export function initCarRenderer() {
   carGroup = new THREE.Group();
   scene.add(carGroup);
 
-  // Plano de la cara: la textura se actualiza por frame con updateFaceTexture()
-  // usando el canvas recortado por segmentación de persona (silueta real,
-  // no un óvalo fijo). Arranca con un canvas vacío hasta el primer frame.
-  const placeholder = document.createElement('canvas');
-  placeholder.width = placeholder.height = 2;
-  faceTexture = new THREE.CanvasTexture(placeholder);
+  // Plano de la cara: usa el MISMO canvas (tamaño fijo) que entrega el
+  // segmentador de persona durante toda la sesión — nunca se reasigna a
+  // otro objeto ni cambia de tamaño, así Three.js no necesita reasignar
+  // el almacenamiento de la textura en GPU (eso rompía el render antes).
+  faceTexture = new THREE.CanvasTexture(faceCanvas);
   faceTexture.colorSpace = THREE.SRGBColorSpace;
+  // Espejo horizontal (efecto selfie) vía UVs, NO vía escala negativa:
+  // escalar la geometría en X invierte el winding del plano y Three.js
+  // lo descarta como cara trasera (culling) → la cara quedaba invisible.
+  faceTexture.wrapS = THREE.RepeatWrapping;
+  faceTexture.repeat.x = -1;
+  faceTexture.offset.x = 1;
 
   const faceMat = new THREE.MeshBasicMaterial({
     map: faceTexture,
@@ -108,17 +113,15 @@ function makeGradientBackground() {
 function positionFace() {
   const f = CONFIG.face;
   facePlane.position.set(f.x, f.y, f.z);
-  // -width: espejo horizontal (efecto selfie)
-  facePlane.scale.set(-f.width, f.height, 1);
+  facePlane.scale.set(f.width, f.height, 1);
   facePlane.rotation.y = f.rotY;
 }
 
-// Actualiza la textura de la cara con el canvas ya recortado por
-// segmentación de persona (RGB del video + alfa = silueta real).
-export function updateFaceTexture(mattedCanvas) {
-  if (!mattedCanvas || !faceTexture) return;
-  faceTexture.image = mattedCanvas;
-  faceTexture.needsUpdate = true;
+// El canvas de la cara (mismo objeto siempre) ya fue mutado por
+// updateFaceCanvas() en person-segmenter.js — solo avisamos a Three.js
+// que vuelva a subir los píxeles (mismo tamaño, sin reallocs en GPU).
+export function refreshFaceTexture() {
+  if (faceTexture) faceTexture.needsUpdate = true;
 }
 
 export function setCarRotation(yaw) {
