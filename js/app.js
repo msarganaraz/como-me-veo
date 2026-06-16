@@ -12,12 +12,14 @@ const panel = document.getElementById('panel');
 const errorMsg = document.getElementById('error-msg');
 
 let initCamera;
-let initCarRenderer, renderCar, setCarRotation, loadCarModel, setCarColor;
+let initCarRenderer, renderCar, setCarRotation, loadCarModel, setCarColor, updateFaceTexture;
 let initFaceTracker, detectFace, calculateYaw, MODELS;
+let initPersonSegmenter, segmentFrame, getMattedCanvas, isSegmenterReady;
 
 let started = false;
 let cameraReady = false;
 let rendererReady = false;
+let segmenterReady = false;
 
 function showError(msg) {
   errorMsg.textContent = msg;
@@ -66,6 +68,13 @@ function loop() {
     if (cameraReady) {
       const result = detectFace(video);
       if (result) setCarRotation(calculateYaw(result));
+
+      // Segmentación de persona: recorta la silueta real (no un óvalo)
+      if (segmenterReady) {
+        segmentFrame(video);
+        const matted = getMattedCanvas(video);
+        if (matted) updateFaceTexture(matted);
+      }
     }
     renderCar();
   }
@@ -101,21 +110,23 @@ async function start() {
 
 async function boot() {
   // Cargar módulos locales con versión propagada (cache-bust)
-  const [cam, car, ft, cfg] = await Promise.all([
+  const [cam, car, ft, cfg, seg] = await Promise.all([
     import('./camera.js' + V),
     import('./car-renderer.js' + V),
     import('./face-tracker.js' + V),
-    import('./models-config.js' + V)
+    import('./models-config.js' + V),
+    import('./person-segmenter.js' + V)
   ]);
 
   initCamera = cam.initCamera;
-  ({ initCarRenderer, renderCar, setCarRotation, loadCarModel, setCarColor } = car);
+  ({ initCarRenderer, renderCar, setCarRotation, loadCarModel, setCarColor, updateFaceTexture } = car);
   ({ initFaceTracker, detectFace, calculateYaw } = ft);
+  ({ initPersonSegmenter, segmentFrame, getMattedCanvas, isSegmenterReady } = seg);
   MODELS = cfg.MODELS;
 
   panel.classList.add('hidden');
 
-  initCarRenderer(video);
+  initCarRenderer();
   rendererReady = true;
 
   buildUI();
@@ -125,6 +136,10 @@ async function boot() {
 
   initFaceTracker()
     .catch(err => console.warn('Face tracker no disponible:', err));
+
+  initPersonSegmenter()
+    .then(() => { segmenterReady = true; })
+    .catch(err => console.warn('Segmentador de persona no disponible:', err));
 
   loop();
 

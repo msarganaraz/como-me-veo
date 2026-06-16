@@ -27,12 +27,12 @@ const CONFIG = {
 };
 
 let renderer, scene, camera, carGroup, carModel, facePlane;
-let videoTexture;
+let faceTexture;
 let targetRotationY = 0;
 let currentRotationY = 0;
 let bodyMaterials = [];
 
-export function initCarRenderer(videoEl) {
+export function initCarRenderer() {
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -64,19 +64,18 @@ export function initCarRenderer(videoEl) {
   carGroup = new THREE.Group();
   scene.add(carGroup);
 
-  // Plano de la cara con la textura de cámara
-  videoTexture = new THREE.VideoTexture(videoEl);
-  videoTexture.colorSpace = THREE.SRGBColorSpace;
-  // Espejo horizontal (efecto selfie)
-  videoTexture.wrapS = THREE.RepeatWrapping;
-  videoTexture.repeat.x = -1;
-  videoTexture.offset.x = 1;
+  // Plano de la cara: la textura se actualiza por frame con updateFaceTexture()
+  // usando el canvas recortado por segmentación de persona (silueta real,
+  // no un óvalo fijo). Arranca con un canvas vacío hasta el primer frame.
+  const placeholder = document.createElement('canvas');
+  placeholder.width = placeholder.height = 2;
+  faceTexture = new THREE.CanvasTexture(placeholder);
+  faceTexture.colorSpace = THREE.SRGBColorSpace;
 
   const faceMat = new THREE.MeshBasicMaterial({
-    map: videoTexture,
+    map: faceTexture,
     toneMapped: false,
-    transparent: true,
-    alphaMap: makeRadialMask()   // desvanece los bordes (oculta el fondo)
+    transparent: true
   });
   facePlane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), faceMat);
   carGroup.add(facePlane);
@@ -88,24 +87,6 @@ export function initCarRenderer(videoEl) {
     camera.updateProjectionMatrix();
     scene.background = makeGradientBackground();
   });
-}
-
-// Máscara radial: centro opaco, bordes transparentes (oculta el fondo de la cara)
-// Difuminado muy suave para que no se note el borde del recorte.
-function makeRadialMask() {
-  const c = document.createElement('canvas');
-  c.width = c.height = 256;
-  const g = c.getContext('2d');
-  const grad = g.createRadialGradient(128, 122, 12, 128, 128, 145);
-  grad.addColorStop(0, '#ffffff');
-  grad.addColorStop(0.4, '#ffffff');
-  grad.addColorStop(0.62, '#dddddd');
-  grad.addColorStop(0.8, '#777777');
-  grad.addColorStop(1, '#000000');
-  g.fillStyle = grad;
-  g.fillRect(0, 0, 256, 256);
-  const tex = new THREE.CanvasTexture(c);
-  return tex;
 }
 
 // Fondo degradado tipo estudio
@@ -127,8 +108,17 @@ function makeGradientBackground() {
 function positionFace() {
   const f = CONFIG.face;
   facePlane.position.set(f.x, f.y, f.z);
-  facePlane.scale.set(f.width, f.height, 1);
+  // -width: espejo horizontal (efecto selfie)
+  facePlane.scale.set(-f.width, f.height, 1);
   facePlane.rotation.y = f.rotY;
+}
+
+// Actualiza la textura de la cara con el canvas ya recortado por
+// segmentación de persona (RGB del video + alfa = silueta real).
+export function updateFaceTexture(mattedCanvas) {
+  if (!mattedCanvas || !faceTexture) return;
+  faceTexture.image = mattedCanvas;
+  faceTexture.needsUpdate = true;
 }
 
 export function setCarRotation(yaw) {
