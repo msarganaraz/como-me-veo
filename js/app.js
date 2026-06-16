@@ -13,8 +13,8 @@ const errorMsg = document.getElementById('error-msg');
 
 let initCamera;
 let initCarRenderer, renderCar, setCarRotation, loadCarModel, setCarColor, refreshFaceTexture;
-let initFaceTracker, detectFace, calculateYaw, MODELS;
 let initPersonSegmenter, segmentFrame, updateFaceCanvas, getFaceCanvas;
+let MODELS;
 
 let started = false;
 let cameraReady = false;
@@ -63,17 +63,48 @@ function selectColor(modelIndex, colorIndex) {
   setCarColor(MODELS[modelIndex].colors[colorIndex].hex);
 }
 
+// ── Rotación manual con el dedo (en vez de seguir la cabeza) ──
+// Así la persona puede mirar siempre de frente a la cámara mientras
+// elige el ángulo del auto con un swipe, sin "perder" la foto al girar
+// la cabeza para mover el auto.
+let dragging = false;
+let lastX = 0;
+let manualYaw = 0; // -1..1
+
+function isInteractiveTarget(el) {
+  return !!(el.closest('#panel') || el.closest('#start-overlay'));
+}
+
+function onDragStart(e) {
+  if (isInteractiveTarget(e.target)) return;
+  dragging = true;
+  lastX = e.clientX;
+}
+
+function onDragMove(e) {
+  if (!dragging) return;
+  const dx = e.clientX - lastX;
+  lastX = e.clientX;
+  manualYaw = Math.max(-1, Math.min(1, manualYaw + dx * 0.006));
+  setCarRotation(manualYaw);
+}
+
+function onDragEnd() {
+  dragging = false;
+}
+
+function setupDragRotation() {
+  window.addEventListener('pointerdown', onDragStart);
+  window.addEventListener('pointermove', onDragMove);
+  window.addEventListener('pointerup', onDragEnd);
+  window.addEventListener('pointercancel', onDragEnd);
+}
+
 function loop() {
   if (rendererReady) {
-    if (cameraReady) {
-      const result = detectFace(video);
-      if (result) setCarRotation(calculateYaw(result));
-
-      // Segmentación de persona: recorta la silueta real (no un óvalo)
-      if (segmenterReady) {
-        segmentFrame(video);
-        if (updateFaceCanvas(video)) refreshFaceTexture();
-      }
+    if (cameraReady && segmenterReady) {
+      segmentFrame(video);
+      if (updateFaceCanvas(video)) refreshFaceTexture();
     }
     renderCar();
   }
@@ -109,17 +140,15 @@ async function start() {
 
 async function boot() {
   // Cargar módulos locales con versión propagada (cache-bust)
-  const [cam, car, ft, cfg, seg] = await Promise.all([
+  const [cam, car, cfg, seg] = await Promise.all([
     import('./camera.js' + V),
     import('./car-renderer.js' + V),
-    import('./face-tracker.js' + V),
     import('./models-config.js' + V),
     import('./person-segmenter.js' + V)
   ]);
 
   initCamera = cam.initCamera;
   ({ initCarRenderer, renderCar, setCarRotation, loadCarModel, setCarColor, refreshFaceTexture } = car);
-  ({ initFaceTracker, detectFace, calculateYaw } = ft);
   ({ initPersonSegmenter, segmentFrame, updateFaceCanvas, getFaceCanvas } = seg);
   MODELS = cfg.MODELS;
 
@@ -131,12 +160,10 @@ async function boot() {
   rendererReady = true;
 
   buildUI();
+  setupDragRotation();
   loadCarModel(MODELS[0].glb, { body: MODELS[0].body, glass: MODELS[0].glass, baseRotation: MODELS[0].baseRotation, face: MODELS[0].face })
     .then(() => setCarColor(MODELS[0].colors[0].hex))
     .catch(err => console.warn('Modelo inicial no cargó:', err));
-
-  initFaceTracker()
-    .catch(err => console.warn('Face tracker no disponible:', err));
 
   initPersonSegmenter()
     .then(() => { segmenterReady = true; })

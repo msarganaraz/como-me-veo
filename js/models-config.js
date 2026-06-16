@@ -11,7 +11,7 @@ export const MODELS = [
     body: 'phong5',
     glass: ['glass', 'ext_glass'],
     baseRotation: Math.PI / 2,
-    face: { x: 0.2, y: 0.15, z: 0.14, width: 0.33, height: 0.4, rotY: 0 },
+    face: { x: 0.2, y: 0.06, z: 0.14, width: 0.46, height: 0.62, rotY: 0 },
     colors: [
       { label: 'Azul', hex: '#1a5fa8' },
       { label: 'Gris', hex: '#8d9398' },

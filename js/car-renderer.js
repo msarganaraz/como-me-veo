@@ -11,7 +11,7 @@ gltfLoader.setDRACOLoader(dracoLoader);
 // ── Parámetros ajustables del efecto "cara en ventanilla" ──
 const CONFIG = {
   carTargetSize: 3.4,        // largo del auto en unidades 3D (normalizado)
-  rotationRange: Math.PI / 5, // ±36° de giro máximo con la cabeza
+  rotationRange: Math.PI / 2.8, // ±64° de giro máximo (control manual con el dedo)
   // Posición ABSOLUTA de la cara en el espacio del auto normalizado.
   // Auto: largo ~3.4 (Z), ancho ~1.5 (X de -0.75 a 0.75), centrado.
   // Ajustada al asiento del conductor del Ferrari (ver iteración con debug).
